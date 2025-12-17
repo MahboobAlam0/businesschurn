@@ -1,9 +1,9 @@
 import streamlit as st
 
-from CustomerChurnML.data_processing import load_and_clean_data
-from CustomerChurnML.model_inference import load_model_and_predict
-from CustomerChurnML.business_logic import churn_intervention_decision
-from CustomerChurnML.evaluation import business_summary
+from data_processing import load_and_clean_data
+from model_inference import load_model_and_predict
+from business_logic import churn_intervention_decision
+from evaluation import business_summary
 
 
 # --------------------------------------------------

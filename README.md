@@ -31,7 +31,7 @@ The business problem addressed in this project is:
 The system follows a production-inspired design with a clear separation between **model training**, **inference**, and **business decisioning**.
 
 ### High-Level Architecture
-
+```
 Offline Training
 └── train_model.py
 ↓
@@ -45,6 +45,7 @@ churn probabilities
 CLV + cost-based business logic
 ↓
 Retention decisions & impact analysis
+```
 
 This structure mirrors how churn systems are typically implemented in real organizations.
 
@@ -142,7 +143,7 @@ that retention decisions are robust to reasonable variations in cost assumptions
 ---
 
 ## Project Structure
-
+```
 CustomerChurnML/
 ├── data/
 │ └── Customer Churn.csv
@@ -154,7 +155,7 @@ CustomerChurnML/
 ├── business_logic.py
 ├── evaluation.py
 └── main.py
-
+```
 ---
 
 ## How to Run

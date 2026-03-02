@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 
 from data_processing import load_and_clean_data
@@ -5,10 +6,7 @@ from model_inference import load_model_and_predict
 from business_logic import churn_intervention_decision
 from evaluation import business_summary
 
-
-# --------------------------------------------------
 # Page configuration
-# --------------------------------------------------
 st.set_page_config(
     page_title="Churn Intervention Decision System",
     layout="wide"
@@ -25,9 +23,6 @@ and intervention cost to estimate expected net business impact.
 """
 )
 
-# --------------------------------------------------
-# Sidebar controls
-# --------------------------------------------------
 st.sidebar.header("Decision Parameters")
 
 intervention_cost = st.sidebar.slider(
@@ -54,24 +49,22 @@ st.sidebar.markdown(
 """
 )
 
-# --------------------------------------------------
-# Load data
-# --------------------------------------------------
 @st.cache_data
-def load_data():
-    return load_and_clean_data("data/Customer Churn.csv")
+def load_data_and_predictions():
+    """Loads data and caches the model inference so sliders are fast."""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    data_path = os.path.join(base_dir, "data", "CustomerChurn.csv")
+    
+    # 1. Load data
+    df = load_and_clean_data(data_path)
+    
+    # 2. Run inference (heavy operation)
+    churn_probs = load_model_and_predict(df)
+    
+    return df, churn_probs
 
+df, churn_probs = load_data_and_predictions()
 
-df = load_data()
-
-# --------------------------------------------------
-# Run inference
-# --------------------------------------------------
-churn_probs = load_model_and_predict(df)
-
-# --------------------------------------------------
-# Business decisioning
-# --------------------------------------------------
 decision_df = churn_intervention_decision(
     df,
     churn_probs,
@@ -81,9 +74,6 @@ decision_df = churn_intervention_decision(
 
 summary = business_summary(decision_df)
 
-# --------------------------------------------------
-# KPI section
-# --------------------------------------------------
 st.subheader("Business Impact Summary")
 
 col1, col2, col3, col4 = st.columns(4)
@@ -93,15 +83,10 @@ col2.metric("Saveable Customers", summary["Saveable Customers"])
 col3.metric("Loyal Customers", summary["Loyal Customers"])
 col4.metric("Expected Net Gain", f"{summary['Total Expected Net Gain']:.2f}")
 
-# --------------------------------------------------
-# Segmentation visualization
-# --------------------------------------------------
 st.subheader("Customer Segmentation Distribution")
 
 segment_counts = decision_df["Segment"].value_counts()
 st.bar_chart(segment_counts)
-
-# --------------------------------------------------
 # Decision table (optional view)
 # --------------------------------------------------
 with st.expander("View Sample Retention Decisions"):

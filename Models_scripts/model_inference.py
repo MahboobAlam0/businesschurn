@@ -1,19 +1,21 @@
+import os
 import pickle
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
 
 
-def load_model_and_predict(df, model_path="models/churn_model.pkl"):
+def load_model_and_predict(df, model_path="models/model.pkl"):
+    # Resolve absolute paths relative to this script if a relative path is provided
+    if not os.path.isabs(model_path):
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        model_path = os.path.join(base_dir, model_path)
+
     # Prepare features
-    X = df.drop(columns=["Churn", "customerID"])
-    X = pd.get_dummies(X, drop_first=True)
+    X = df.drop(columns=["Churn", "customerID"], errors="ignore")
 
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)  # OK for demo; note below
-
-    # Load trained model
+    # Load trained model pipeline
     with open(model_path, "rb") as f:
         model = pickle.load(f)
 
-    churn_probs = model.predict_proba(X_scaled)[:, 1]
+    # The pipeline handles all preprocessing
+    churn_probs = model.predict_proba(X)[:, 1]
     return churn_probs

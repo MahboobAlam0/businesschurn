@@ -2,66 +2,83 @@
 
 ## Overview
 
-Customer churn prediction by itself rarely creates business value. Retention actions such as discounts, loyalty offers, or customer support interventions come with real costs, and blindly targeting every high-risk customer often leads to wasted spend.
+Predicting customer churn alone does **not** create business value.
 
-This project reframes churn modeling as a **business decision problem**, not just a classification task.  
-Instead of asking *“Who will churn?”*, the system answers:
+Retention actions such as discounts, loyalty offers, or customer support outreach carry **real operational costs**, and targeting every high-risk customer often results in wasted spend.
 
-> **“Which customers should the business actively intervene on to maximize net revenue?”**
+This project reframes churn modeling as a **business decision problem**, not just a classification task.
 
-The solution combines churn probability, customer lifetime value (CLV), and intervention cost to produce **actionable, cost-aware retention decisions**.
+Instead of asking:
 
----
+> *“Which customers are likely to churn?”*
 
-## Problem Statement
+the system answers:
 
-Most churn projects stop at predicting whether a customer will leave. In practice, this approach has two major flaws:
+> **“Which customers should we intervene on to maximize expected net revenue?”**
 
-1. **Retention actions are not free** – offers, discounts, and service calls have costs.
-2. **Not all customers are equally valuable** – saving a low-value customer may cost more than it returns.
-
-The business problem addressed in this project is:
-
-> *How can we identify customers who are both likely to churn and financially worth saving, while avoiding unnecessary retention costs?*
+The solution combines **churn probability**, **customer lifetime value (CLV)**, and **intervention cost** to produce **cost-aware, actionable retention decisions**.
 
 ---
 
-## Solution Design
+## Problem Framing
 
-The system follows a production-inspired design with a clear separation between **model training**, **inference**, and **business decisioning**.
+Most churn projects stop at predicting a binary outcome (churn / no churn).  
+This approach breaks down in practice because:
+
+1. **Retention actions are not free** — discounts and support interactions have costs.
+2. **Customers are not equally valuable** — saving a low-value customer may cost more than it returns.
+3. **Probabilities matter more than labels** — decision-making requires risk estimates, not hard predictions.
+
+The business question addressed here is:
+
+> *How can we identify customers who are both likely to churn **and** financially worth saving, while avoiding unnecessary retention costs?*
+
+---
+
+## System Design
+
+The project follows a **production-inspired structure** with a clear separation between:
+
+- **Model training**
+- **Batch inference**
+- **Business decision logic**
 
 ### High-Level Architecture
+
 ```
 Offline Training
 └── train_model.py
 ↓
-churn_model.pkl (saved model)
+model.pkl (saved model)
 
 Batch Inference & Decisioning
 └── main.py
 ↓
 churn probabilities
 ↓
-CLV + cost-based business logic
+CLV + cost-aware business logic
 ↓
 Retention decisions & impact analysis
 ```
 
-This structure mirrors how churn systems are typically implemented in real organizations.
+
+This mirrors how churn pipelines are commonly implemented in real organizations:
+- models are trained offline,
+- predictions are generated in batches,
+- business logic determines actions.
 
 ---
 
 ## Dataset
 
-The project uses the **IBM Telco Customer Churn dataset**, which contains:
+The system uses the **IBM Telco Customer Churn Dataset**, containing:
 
-- 7,032 customer records
-- Demographic information
-- Service usage and contract details
-- Billing information (`MonthlyCharges`, `TotalCharges`)
+- **7,032 customer records**
+- Demographic and service usage features
+- Contract and billing information
 - Target variable: `Churn` (Yes / No)
 
-The dataset is well-suited for both churn prediction and value-based analysis.
+The dataset supports both churn prediction and value-based segmentation.
 
 ---
 
@@ -71,14 +88,27 @@ The dataset is well-suited for both churn prediction and value-based analysis.
 
 A **Logistic Regression** model is used for churn prediction.
 
-This choice is intentional:
+This is a **deliberate design decision**:
 
-- The project relies on **probability estimates**, not just class labels.
-- Logistic Regression provides stable and reasonably well-calibrated probabilities.
-- Interpretability is important for business-facing decisions.
-- The focus is on **decision quality**, not marginal gains in accuracy.
+- The system relies on **probability estimates**, not class labels.
+- Logistic Regression provides **stable and interpretable probabilities**.
+- Calibration and reliability are more important than marginal accuracy gains.
+- The focus is on **decision quality**, not leaderboard metrics.
 
-The model is trained **offline** and saved as a reusable artifact.
+The model is trained offline and saved as a reusable artifact.
+
+---
+
+## Model Performance
+
+Evaluation on a held-out test set:
+
+| Metric | Value |
+|------|------|
+| Accuracy | **0.805** |
+| ROC-AUC | **0.836** |
+
+These results are **sufficient for decision support**, where business logic absorbs model uncertainty.
 
 ---
 
@@ -86,27 +116,30 @@ The model is trained **offline** and saved as a reusable artifact.
 
 ### Customer Lifetime Value (CLV)
 
-A conservative CLV approximation is used to avoid overstating business impact:
+A conservative CLV approximation is used to avoid overstating impact:
+**CLV = MonthlyCharges × RemainingMonths × ContributionMargin**
 
-CLV = MonthlyCharges × RemainingMonths × ContributionMargin
 
-- RemainingMonths = (average tenure − current tenure), with a minimum of 1
-- Contribution margin is set to 30% to reflect realistic profit, not raw revenue
+Assumptions:
+- RemainingMonths = (average tenure − current tenure), minimum of 1
+- Contribution margin fixed at **30%** to reflect profit, not revenue
 
-### Expected Net Gain
+---
+
+### Expected Net Value
 
 For each customer:
+**Expected Revenue Saved = P(churn) × CLV**
+**Net Gain = Expected Revenue Saved - Intervention Cost**
 
-ExpectedRevenueSaved = P(churn) × CLV
-NetGain = ExpectedRevenueSaved − InterventionCost
 
-This formulation allows the system to explicitly compare **expected benefit vs cost**.
+This formulation explicitly compares **expected benefit vs cost**.
 
 ---
 
 ## Customer Segmentation
 
-Based on churn probability and net gain, customers are segmented into:
+Customers are segmented based on churn probability and expected net gain:
 
 | Segment | Description |
 |------|-------------|
@@ -114,77 +147,112 @@ Based on churn probability and net gain, customers are segmented into:
 | **Loyal** | Low churn risk; no intervention required |
 | **Not Worth Saving** | High churn risk but negative net gain |
 
-Only customers in the **Saveable** segment are recommended for retention actions.
+Only **Saveable** customers are recommended for retention actions.
 
 ---
 
-## Results Summary
+## Results: Business Impact
 
-When applied to the full customer base, the system identifies a clear prioritization
-strategy for retention efforts:
+### Overall Summary
 
-- Approximately **20%** of customers are classified as **Saveable**, indicating high
-  churn risk with positive expected net value from intervention
-- Roughly **75–80%** of customers are categorized as **Loyal**, requiring no retention
-  action and allowing the business to avoid unnecessary spend
-- A small remainder is identified as **Not Worth Saving**, where intervention costs
-  exceed expected value
+| Metric | Value |
+|------|------|
+| Total Customers | 7,032 |
+| Saveable Customers | **1,424 (~20%)** |
+| Loyal Customers | **5,455 (~78%)** |
+| Not Worth Saving | **153 (~2%)** |
+| Total Expected Net Gain | **≈ 449,500** |
 
-This targeted segmentation enables focused retention strategies rather than blanket
-campaigns, improving efficiency and aligning spend with measurable business impact.
+This segmentation enables **targeted retention efforts** instead of blanket campaigns.
 
-### Sensitivity Analysis
+---
 
-The decision framework was evaluated across multiple intervention cost scenarios
-(e.g., 20, 50, and 100 units).  
-Across this range, the system consistently maintains positive expected value, indicating
-that retention decisions are robust to reasonable variations in cost assumptions.
+## Sensitivity Analysis
+
+The decision framework was evaluated across multiple intervention cost assumptions:
+
+| Intervention Cost | Expected Net Gain |
+|------|------|
+| 20 | **≈ 553,884** |
+| 50 | **≈ 499,251** |
+| 100 | **≈ 411,593** |
+
+Key observation:
+- Net gain decreases as cost increases (expected behavior)
+- The strategy remains **profitable across all tested scenarios**
+
+This indicates that the retention policy is **robust**, not brittle.
 
 ---
 
 ## Project Structure
+
 ```
-CustomerChurnML/
+businesschurn/
 ├── data/
-│ └── Customer Churn.csv
+│ └── CustomerChurn.csv
 ├── models/
 │ └── churn_model.pkl
-├── data_processing.py
-├── train_model.py
-├── model_inference.py
-├── business_logic.py
-├── evaluation.py
-└── main.py
+├── Models_Scripts/
+│ ├── app.py
+│ ├── business_logic.py
+│ ├── data_processing.py
+│ ├── evaluation.py
+│ ├── train_model.py
+│ ├── model_inference.py
+│ └── main.py
+├── README.md
+└── requirements.txt
 ```
+
 ---
 
-## How to Run
+## Setup
 
-### 1. Train the model (one-time step)
-
+1. Install dependencies:
 ```bash
-python CustomerChurnML/train_model.py
+pip install -r requirements.txt
 ```
-This trains the churn model and saves it to models/churn_model.pkl.
 
-### 2. Run inference and business decision
-
+2. Train the model:
 ```bash
-python CustomerChurnML/main.py
+python Models_Scripts/train_model.py
 ```
-This executes batch inference, applies business logic, and prints:
-- Customer segmentation counts 
-- Estimated net business impact 
-- Sensitivity analysis results 
+
+3. Run the application:
+```bash
+python Models_Scripts/app.py
+```
+
+Outputs:
+
+- Customer segmentation counts
+- Total expected net business gain
+- Sensitivity analysis across intervention costs
 
 ## Key Takeaways
-- Churn prediction alone is insufficient for effective retention strategies
-- Business decisions should be driven by expected value, not accuracy metric
-- Simple, interpretable models combined with strong business logic can outperform complex but misaligned approaches
-- Cost-aware decision frameworks are critical for real-world ML systems
+
+- Churn prediction alone is insufficient for retention strategy design
+- Business decisions should be driven by expected value, not accuracy
+- Simple, interpretable models paired with strong business logic are often superior to complex models without cost awareness
+- Probability-based decision systems are more realistic than binary classification pipelines
+
+## Limitations
+- CLV is approximated using simple heuristics rather than a dedicated CLV model
+- No uplift modeling — treatment effect of interventions is assumed, not estimated
+- No live A/B testing loop
+- No long-term monitoring or drift detection
+
+These limitations are explicitly documented to avoid overstating conclusions.
 
 ## Future Improvements
-- Persist preprocessing artifacts (scalers, encoders) alongside the model
-- Incorporate uplift modeling to estimate treatment effect of interventions
-- Add A/B testing framework for retention strategies
-- Monitor data drift and model performance over time
+- Persist preprocessing artifacts alongside the model
+- Introduce uplift modeling for causal intervention estimation
+- Add A/B testing simulation for retention strategies
+- Implement data drift and performance monitoring
+- Extend to multi-period retention optimization
+
+## Note
+
+This project is intended for educational and portfolio demonstration purposes only.
+It is not production-deployed and does not represent a fully operational retention system.

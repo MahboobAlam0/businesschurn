@@ -1,6 +1,6 @@
 import numpy as np
 
-print(">>> USING UPDATED business_logic.py WITH MARGIN <<<")
+
 def compute_clv(df, margin=0.3):
     avg_tenure = df["tenure"].mean()
     remaining_months = np.maximum(1, avg_tenure - df["tenure"])

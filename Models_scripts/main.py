@@ -1,3 +1,4 @@
+import os
 from data_processing import load_and_clean_data
 from model_inference import load_model_and_predict
 from business_logic import churn_intervention_decision
@@ -5,7 +6,10 @@ from evaluation import business_summary
 
 
 def main():
-    df = load_and_clean_data("data/Customer Churn.csv")
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    data_path = os.path.join(base_dir, "data", "CustomerChurn.csv")
+    
+    df = load_and_clean_data(data_path)
 
     churn_probs = load_model_and_predict(df)
 
